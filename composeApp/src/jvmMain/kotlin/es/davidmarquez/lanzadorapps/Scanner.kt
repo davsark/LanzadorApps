@@ -1,35 +1,56 @@
 package es.davidmarquez.lanzadorapps
 
-import java.io.File // ¡Importante para manejar archivos!
+import java.io.File
 
 object Scanner {
 
-    /**
-     * Esta es la función principal que llamará nuestra UI.
-     * Decide qué lógica de escaneo usar.
-     */
+    // --- NUEVO FILTRO ---
+    // Carpetas que ignoraremos por completo. Si el escáner
+    // ve una carpeta con uno de estos nombres, no entrará.
+    private val directoriosIgnorados = listOf(
+        "Common Files",     // Archivos comunes de Microsoft
+        "Intel",            // Drivers
+        "NVIDIA",           // Drivers
+        "NVIDIA Corporation",
+        "drivers",          // Drivers
+        "Microsoft.NET",    // Frameworks
+        "Microsoft SDKs",
+        "Windows Defender", // Antivirus
+        "Temp",
+        "Redist",           // Redistribuibles
+        "vcredist",
+        "DirectX"
+    )
+
+    // --- FILTRO MEJORADO ---
+    // Palabras clave en nombres de .exe a ignorar
+    private val keywordsIgnoradas = listOf(
+        "unins", "setup", "update", "crash", "dbg", "report", "support",
+        "install", "service", "agent", "helper", "plugin", "eula", "readme" // Añadidos
+    )
+
+    // --- FILTRO MEJORADO ---
+    // Aumentamos el tamaño mínimo a 5 MB
+    private const val TAMANO_MINIMO_MB = 5
+
     fun escanearJuegos(): List<Juego> {
         return when (DetectorSO.actual) {
             DetectorSO.SistemaOperativo.WINDOWS -> escanearWindows()
             DetectorSO.SistemaOperativo.LINUX -> escanearLinux()
-            DetectorSO.SistemaOperativo.OTRO -> emptyList() // No soportamos otros SO
+            DetectorSO.SistemaOperativo.OTRO -> emptyList()
         }
     }
 
-    // --- LÓGICA DE WINDOWS ---
     private fun escanearWindows(): List<Juego> {
-        println("Escaneando en Windows...")
+        println("Escaneando en Windows (modo agresivo)...")
         val juegosEncontrados = mutableListOf<Juego>()
 
-        // Lista de directorios raíz donde suelen estar los juegos/apps
         val directoriosBusqueda = listOf(
             File("C:\\Program Files"),
             File("C:\\Program Files (x86)")
-            // Podrías añadir más, como el Escritorio o el Menú Inicio
         )
 
         for (directorio in directoriosBusqueda) {
-            // Empezamos la búsqueda recursiva
             if (directorio.exists() && directorio.isDirectory) {
                 buscarRecursivamente(directorio, juegosEncontrados)
             }
@@ -40,38 +61,57 @@ object Scanner {
     }
 
     /**
-     * Esta función se llama a sí misma para buscar dentro de subcarpetas.
+     * Función recursiva con los nuevos filtros
      */
     private fun buscarRecursivamente(directorio: File, lista: MutableList<Juego>) {
-        // .listFiles() puede devolver null si no tenemos permisos
+
+        // --- NUEVO FILTRO POR DIRECTORIO ---
+        // Si el nombre de la carpeta está en la lista de ignorados,
+        // no seguimos buscando dentro. 'return' para la ejecución aquí.
+        if (directoriosIgnorados.any { dirIgnorado -> directorio.name.contains(dirIgnorado) }) {
+            return
+        }
+
         val archivos = directorio.listFiles() ?: return
 
         for (archivo in archivos) {
             try {
                 if (archivo.isDirectory) {
-                    // Si es un directorio, seguimos buscando dentro (recursividad)
                     buscarRecursivamente(archivo, lista)
                 } else if (archivo.isFile && archivo.name.endsWith(".exe")) {
-                    // ¡Encontrado! Lo añadimos a la lista
+
+                    // 1. Filtro por tamaño (ahora 5MB)
+                    val tamanoEnMB = archivo.length() / (1024 * 1024)
+                    if (tamanoEnMB < TAMANO_MINIMO_MB) {
+                        continue
+                    }
+
+                    // 2. Filtro por nombre (lista más larga)
+                    val nombreEnMinusculas = archivo.name.lowercase()
+                    val contieneKeywordIgnorada = keywordsIgnoradas.any { keyword ->
+                        nombreEnMinusculas.contains(keyword)
+                    }
+
+                    if (contieneKeywordIgnorada) {
+                        continue
+                    }
+
+                    // Si pasa todos los filtros, lo añadimos
                     val nuevoJuego = Juego(
-                        nombre = archivo.nameWithoutExtension, // "juego.exe" -> "juego"
+                        nombre = archivo.nameWithoutExtension,
                         ruta = archivo.absolutePath,
-                        icono = "" // TODO: Extraer el icono (es un paso avanzado)
+                        icono = ""
                     )
                     lista.add(nuevoJuego)
                 }
             } catch (e: Exception) {
-                // Si falla (ej. carpeta sin permisos), solo lo imprimimos y seguimos
                 println("Error al acceder a ${archivo.absolutePath}: ${e.message}")
             }
         }
     }
 
-    // --- LÓGICA DE LINUX (Pendiente) ---
     private fun escanearLinux(): List<Juego> {
         println("Escaneo de Linux... (no implementado)")
-        // TODO: Implementar la lectura de archivos .desktop
-        // en /usr/share/applications y ~/.local/share/applications
         return emptyList()
     }
 }
