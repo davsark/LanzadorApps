@@ -1,59 +1,61 @@
 package es.davidmarquez.lanzadorapps // Asegúrate de que este paquete coincide con el tuyo
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
+// --- IMPORTACIONES NUEVAS ---
+import java.awt.Desktop // Para abrir el explorador de archivos
+import java.io.File      // Para manejar la ruta del archivo
+import java.io.IOException // Para el manejo de errores
+// ------------------------------
+
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material3.Button // Material 3
+import androidx.compose.material3.MaterialTheme // Material 3
+import androidx.compose.material3.Text // Material 3
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
 
 // --- PASO 1: Definir el "Modelo" de Datos ---
-// Esta data class representa la información de cada juego o app
 data class Juego(
     val nombre: String,
     val ruta: String,
-    val icono: String // Por ahora, podemos ignorar esto o usar una ruta a una imagen de prueba
+    val icono: String
 )
 
 // --- PASO 2: Crear la Lista "Fake" ---
-// Una lista de ejemplo para construir la UI sin tener la lógica de escaneo
 val listaDeJuegosFalsos = listOf(
-    Juego("Calculadora", "C:\\Windows\\System32\\calc.exe", "icono_default.png"),
-    Juego("Bloc de notas", "C:\\Windows\\System32\\notepad.exe", "icono_default.png"),
-    Juego("Paint", "C:\\Windows\\System32\\mspaint.exe", "icono_default.png")
+    // Ponemos rutas reales de Windows para que la prueba funcione
+    Juego("Calculadora", "calc.exe", "icono_default.png"),
+    Juego("Bloc de notas", "notepad.exe", "icono_default.png"),
+    Juego("Paint", "mspaint.exe", "icono_default.png")
 )
 
 
 // --- PASO 3: Construir la UI ---
-// Este es tu Composable principal
 @Composable
-@Preview // @Preview te permite ver una vista previa en IntelliJ
 fun App() {
     MaterialTheme {
-        // 'juegosState' es la variable que "recuerda" la lista de juegos.
-        // Usamos mutableStateOf para que Compose sepa que si esta lista cambia,
-        // tiene que "redibujar" la pantalla.
-        // Inicialmente, le damos la lista falsa.
         val juegosState = remember { mutableStateOf(listaDeJuegosFalsos) }
 
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // Botón de ejemplo (aún no hace nada)
-            Button(onClick = { /* TODO: Aquí irá la lógica de escaneo */ }) {
+            Button(
+                onClick = { /* TODO: Aquí irá la lógica de escaneo */ },
+                modifier = Modifier.fillMaxWidth().padding(8.dp)
+            ) {
                 Text("Escanear Sistema")
             }
 
-            // 'LazyColumn' es la forma eficiente de mostrar listas en Compose
-            // Le damos .weight(1f) para que ocupe todo el espacio sobrante
             LazyColumn(modifier = Modifier.weight(1f)) {
-
-                // Creamos un item por cada 'juego' en nuestro 'juegosState'
                 items(juegosState.value) { juego ->
-                    // Llamamos a otro Composable para dibujar cada fila
                     FilaDeJuego(juego)
                 }
             }
@@ -61,11 +63,79 @@ fun App() {
     }
 }
 
-// --- PASO 4: Diseñar la Fila (Versión simple) ---
-// Este será el Composable que define cómo se ve CADA fila de la lista
+// --- PASO 4: Diseñar la Fila (Versión MEJORADA) ---
 @Composable
 fun FilaDeJuego(juego: Juego) {
-    // Por ahora, solo mostramos el nombre
-    // TODO: Hacer esto más bonito con una Row, un Icono y un Botón
-    Text(juego.nombre)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        // Columna para el nombre y la ruta
+        Column(
+            modifier = Modifier.weight(1f) // Ocupa el espacio sobrante
+        ) {
+            Text(
+                text = juego.nombre,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = juego.ruta,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        // --- NUEVO BLOQUE DE BOTONES ---
+        // Envolvemos los botones en su propio Row
+        // para que se agrupen al final.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp) // Espacio entre botones
+        ) {
+            // --- Botón de Lanzar ---
+            Button(onClick = {
+                try {
+                    ProcessBuilder(juego.ruta).start()
+                    println("Lanzando: ${juego.nombre}")
+                } catch (e: IOException) {
+                    println("Error al lanzar ${juego.nombre}: ${e.message}")
+                    e.printStackTrace()
+                }
+            }) {
+                Text("Lanzar")
+            }
+
+            // --- ¡NUEVO BOTÓN! ---
+            Button(onClick = {
+                try {
+                    // Obtenemos el directorio padre del archivo
+                    val file = File(juego.ruta)
+                    // Si la ruta es solo "calc.exe", no tiene padre, así que no hacemos nada
+                    if (file.parentFile == null) {
+                        println("No se puede explorar la ruta (es un comando del sistema)")
+                        return@Button
+                    }
+                    val directory = file.parentFile
+
+                    // Usamos Desktop.open() que es la forma
+                    // correcta y multiplataforma de abrir un directorio
+                    if (directory != null && directory.exists()) {
+                        Desktop.getDesktop().open(directory)
+                        println("Explorando: ${directory.absolutePath}")
+                    } else {
+                        println("Error: El directorio no existe o la ruta es inválida.")
+                    }
+
+                } catch (e: Exception) {
+                    // Capturamos cualquier error (IO, SecurityException, etc.)
+                    println("Error al explorar la ruta: ${e.message}")
+                    e.printStackTrace()
+                }
+            }) {
+                Text("Explorar ruta")
+            }
+        }
+    }
 }
