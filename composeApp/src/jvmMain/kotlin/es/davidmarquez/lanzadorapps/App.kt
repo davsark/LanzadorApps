@@ -1,11 +1,16 @@
 package es.davidmarquez.lanzadorapps
 
-// --- IMPORTACIONES PARA COROUTINES ---
+// --- IMPORTACIONES CLAVE ---
+import java.awt.Dialog
+import java.awt.FileDialog
+import java.awt.Frame // ¡La que faltaba!
+import java.awt.Window
+import java.io.FilenameFilter
+// -----------------------------
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-// -------------------------------------
-
 import java.awt.Desktop
 import java.io.File
 import java.io.IOException
@@ -13,7 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator // ¡Nuevo! Para mostrar que carga
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -21,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-// --- Modelo de Datos ---
 data class Juego(
     val nombre: String,
     val ruta: String,
@@ -29,7 +33,7 @@ data class Juego(
 )
 
 @Composable
-fun App() {
+fun App(window: Window) { // Recibe la ventana
     MaterialTheme {
         val juegosState = remember { mutableStateOf<List<Juego>>(emptyList()) }
         val estaEscaneando = remember { mutableStateOf(false) }
@@ -37,26 +41,60 @@ fun App() {
 
         Column(modifier = Modifier.fillMaxSize()) {
 
-            Button(
-                enabled = !estaEscaneando.value,
-                onClick = {
-                    scope.launch {
-                        estaEscaneando.value = true
-                        val juegosEncontrados = withContext(Dispatchers.IO) {
-                            Scanner.escanearJuegos()
-                        }
-                        juegosState.value = juegosEncontrados
-                        estaEscaneando.value = false
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
+            // --- Fila de Botones Superiores ---
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Escanear Sistema")
+                // Botón de Escanear
+                Button(
+                    enabled = !estaEscaneando.value,
+                    onClick = {
+                        scope.launch {
+                            estaEscaneando.value = true
+                            val juegosEncontrados = withContext(Dispatchers.IO) {
+                                Scanner.escanearJuegos()
+                            }
+                            juegosState.value = juegosEncontrados
+                            estaEscaneando.value = false
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Escanear Sistema")
+                }
+
+                // Botón de Añadir Manualmente
+                Button(
+                    enabled = !estaEscaneando.value,
+                    onClick = {
+                        // --- LÓGICA DE FILEDIALOG CORREGIDA ---
+                        val fileDialog = FileDialog(window as Frame, "Seleccionar aplicación (.exe)", FileDialog.LOAD).apply {
+                            filenameFilter = FilenameFilter { _, name -> name.endsWith(".exe") }
+                            isMultipleMode = false
+                            isVisible = true
+                        }
+
+                        val directory = fileDialog.directory
+                        val file = fileDialog.file
+
+                        if (directory != null && file != null) {
+                            val nuevoJuego = Juego(
+                                nombre = file.removeSuffix(".exe"),
+                                ruta = File(directory, file).absolutePath,
+                                icono = ""
+                            )
+                            juegosState.value = juegosState.value + nuevoJuego
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Añadir Manualmente")
+                }
             }
 
-            // --- ¡BLOQUE MODIFICADO! ---
+            // --- Indicador de Carga o Contador ---
             if (estaEscaneando.value) {
-                // Si está escaneando, mostramos una barra de carga
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -64,17 +102,14 @@ fun App() {
                     CircularProgressIndicator(modifier = Modifier.padding(16.dp))
                 }
             } else {
-                // ¡NUEVO CONTADOR!
-                // Cuando no está escaneando, mostramos el total.
                 Text(
                     text = "Aplicaciones encontradas: ${juegosState.value.size}",
-                    style = MaterialTheme.typography.bodyMedium, // Un estilo de texto
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
-            // --- FIN DEL BLOQUE MODIFICADO ---
 
-
+            // --- Lista de Juegos ---
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(juegosState.value) { juego ->
                     FilaDeJuego(juego)
@@ -84,7 +119,6 @@ fun App() {
     }
 }
 
-// La FilaDeJuego no cambia, la dejamos como estaba
 @Composable
 fun FilaDeJuego(juego: Juego) {
     Row(
@@ -107,9 +141,7 @@ fun FilaDeJuego(juego: Juego) {
             Button(onClick = {
                 try {
                     ProcessBuilder(juego.ruta).start()
-                    println("Lanzando: ${juego.nombre}")
                 } catch (e: IOException) {
-                    println("Error al lanzar ${juego.nombre}: ${e.message}")
                     e.printStackTrace()
                 }
             }) { Text("Lanzar") }
@@ -117,19 +149,12 @@ fun FilaDeJuego(juego: Juego) {
             Button(onClick = {
                 try {
                     val file = File(juego.ruta)
-                    if (file.parentFile == null) {
-                        println("No se puede explorar la ruta (es un comando del sistema)")
-                        return@Button
-                    }
+                    if (file.parentFile == null) return@Button
                     val directory = file.parentFile
                     if (directory != null && directory.exists()) {
                         Desktop.getDesktop().open(directory)
-                        println("Explorando: ${directory.absolutePath}")
-                    } else {
-                        println("Error: El directorio no existe o la ruta es inválida.")
                     }
                 } catch (e: Exception) {
-                    println("Error al explorar la ruta: ${e.message}")
                     e.printStackTrace()
                 }
             }) { Text("Explorar ruta") }

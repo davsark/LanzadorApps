@@ -6,8 +6,8 @@ import androidx.compose.ui.window.application
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
-        title = "LanzadorApps",
+        title = "Launcher de Apps", //Este es el título que se muestra en la ventana
     ) {
-        App()
+        App(window) //le pasamos esta propiedad a la funcion App()
     }
 }
