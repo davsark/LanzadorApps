@@ -61,9 +61,7 @@ object Scanner {
                     if (!yaExiste) {
                         juegosEncontrados.add(Juego(
                             nombre = appFile.nameWithoutExtension,
-                            ruta = appFile.absolutePath,
-                            icono = ""
-                        ))
+                            ruta = appFile.absolutePath))
                     }
                 }
             }
@@ -104,9 +102,7 @@ object Scanner {
 
                     val nuevoJuego = Juego(
                         nombre = archivo.nameWithoutExtension,
-                        ruta = archivo.absolutePath,
-                        icono = ""
-                    )
+                        ruta = archivo.absolutePath)
                     lista.add(nuevoJuego)
                 }
             } catch (e: Exception) {

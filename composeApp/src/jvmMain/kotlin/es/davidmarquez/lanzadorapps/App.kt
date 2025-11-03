@@ -1,13 +1,16 @@
 package es.davidmarquez.lanzadorapps
 
 // --- IMPORTACIONES CLAVE ---
-import java.awt.Dialog
 import java.awt.FileDialog
 import java.awt.Frame // ¡La que faltaba!
 import java.awt.Window
 import java.io.FilenameFilter
 // -----------------------------
-
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.size
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,12 +27,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.dp
+import es.davidmarquez.lanzadorapps.IconUtils
 
 data class Juego(
     val nombre: String,
     val ruta: String,
-    val icono: String
 )
 
 @Composable
@@ -82,7 +86,6 @@ fun App(window: Window) { // Recibe la ventana
                             val nuevoJuego = Juego(
                                 nombre = file.removeSuffix(".exe"),
                                 ruta = File(directory, file).absolutePath,
-                                icono = ""
                             )
                             juegosState.value = juegosState.value + nuevoJuego
                         }
@@ -121,12 +124,39 @@ fun App(window: Window) { // Recibe la ventana
 
 @Composable
 fun FilaDeJuego(juego: Juego) {
+    //Logica para cargar icono
+    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, juego.ruta){
+        value = IconUtils.getIconForFile(File(juego.ruta))
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // --- Composable del Icono ---
+        Box(
+            modifier = Modifier
+                .size(40.dp) // Tamaño fijo para el icono
+                .background(Color.Gray.copy(alpha = 0.3f)) // Fondo gris de placeholder
+                .padding(4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (iconBitmap != null) {
+                // Si el icono se ha cargado, lo mostramos
+                Image(
+                    bitmap = iconBitmap!!,
+                    contentDescription = "Icono de ${juego.nombre}",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit // Ajusta el icono al Box
+                )
+            }
+            // Si iconBitmap es null, solo se ve el Box gris (el placeholder)
+        }
+
+        Spacer(modifier = Modifier.width(16.dp)) // Espacio entre icono y texto
+
+        // Columna de Texto
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = juego.nombre,
@@ -137,6 +167,7 @@ fun FilaDeJuego(juego: Juego) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
+        //Fila de botones
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
                 try {
