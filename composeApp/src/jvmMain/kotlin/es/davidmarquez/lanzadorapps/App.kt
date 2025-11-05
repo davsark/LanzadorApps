@@ -1,36 +1,31 @@
 package es.davidmarquez.lanzadorapps
 
-// --- IMPORTACIONES CLAVE ---
-import java.awt.FileDialog
-import java.awt.Frame // ¡La que faltaba!
-import java.awt.Window
-import java.io.FilenameFilter
-// -----------------------------
+// Tus importaciones (he quitado las de iconos)
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
+import java.awt.FileDialog
+import java.awt.Frame
+import java.awt.Window
 import java.io.File
+import java.io.FilenameFilter
 import java.io.IOException
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.dp
-import es.davidmarquez.lanzadorapps.IconUtils
 
+// La data class (sin 'icono')
 data class Juego(
     val nombre: String,
     val ruta: String,
@@ -38,14 +33,28 @@ data class Juego(
 
 @Composable
 fun App(window: Window) { // Recibe la ventana
-    MaterialTheme {
+    MaterialTheme (
+        colorScheme = darkColorScheme() // 1. Tema oscuro
+    ){
         val juegosState = remember { mutableStateOf<List<Juego>>(emptyList()) }
         val estaEscaneando = remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
+        val searchTextState = remember { mutableStateOf("") }
 
+        val listaFiltrada = remember(juegosState.value, searchTextState.value) {
+            if (searchTextState.value.isBlank()) {
+                juegosState.value
+            } else {
+                juegosState.value.filter { juego ->
+                    juego.nombre.contains(searchTextState.value, ignoreCase = true)
+                }
+            }
+        }
+
+        // --- ¡ESTE ES EL ORDEN CORRECTO DEL LAYOUT! ---
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // --- Fila de Botones Superiores ---
+            // --- 1. PRIMERO: El Row de botones ---
             Row(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -64,24 +73,19 @@ fun App(window: Window) { // Recibe la ventana
                         }
                     },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Escanear Sistema")
-                }
+                ) { Text("Escanear Sistema") }
 
                 // Botón de Añadir Manualmente
                 Button(
                     enabled = !estaEscaneando.value,
                     onClick = {
-                        // --- LÓGICA DE FILEDIALOG CORREGIDA ---
                         val fileDialog = FileDialog(window as Frame, "Seleccionar aplicación (.exe)", FileDialog.LOAD).apply {
                             filenameFilter = FilenameFilter { _, name -> name.endsWith(".exe") }
                             isMultipleMode = false
                             isVisible = true
                         }
-
                         val directory = fileDialog.directory
                         val file = fileDialog.file
-
                         if (directory != null && file != null) {
                             val nuevoJuego = Juego(
                                 nombre = file.removeSuffix(".exe"),
@@ -91,12 +95,21 @@ fun App(window: Window) { // Recibe la ventana
                         }
                     },
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Añadir Manualmente")
-                }
-            }
+                ) { Text("Añadir Manualmente") }
+            } // --- Fin del Row de botones ---
 
-            // --- Indicador de Carga o Contador ---
+            // --- 2. SEGUNDO: La barra de búsqueda ---
+            OutlinedTextField(
+                value = searchTextState.value,
+                onValueChange = { searchTextState.value = it },
+                label = { Text("Buscar por nombre...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                singleLine = true
+            )
+
+            // --- 3. TERCERO: El indicador de carga o contador ---
             if (estaEscaneando.value) {
                 Box(
                     modifier = Modifier.fillMaxWidth(),
@@ -106,15 +119,16 @@ fun App(window: Window) { // Recibe la ventana
                 }
             } else {
                 Text(
-                    text = "Aplicaciones encontradas: ${juegosState.value.size}",
+                    // ¡Contador corregido para usar la lista filtrada!
+                    text = "Aplicaciones encontradas: ${listaFiltrada.size}",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
 
-            // --- Lista de Juegos ---
+            // --- 4. CUARTO: La lista ---
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(juegosState.value) { juego ->
+                items(listaFiltrada) { juego ->
                     FilaDeJuego(juego)
                 }
             }
@@ -122,73 +136,76 @@ fun App(window: Window) { // Recibe la ventana
     }
 }
 
+// --- FilaDeJuego (con Card) ---
 @Composable
 fun FilaDeJuego(juego: Juego) {
-    //Logica para cargar icono
-    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, juego.ruta){
+
+    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, juego.ruta) {
         value = IconUtils.getIconForFile(File(juego.ruta))
     }
-    Row(
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        // --- Composable del Icono ---
-        Box(
+        Row(
             modifier = Modifier
-                .size(40.dp) // Tamaño fijo para el icono
-                .background(Color.Gray.copy(alpha = 0.3f)) // Fondo gris de placeholder
-                .padding(4.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (iconBitmap != null) {
-                // Si el icono se ha cargado, lo mostramos
-                Image(
-                    bitmap = iconBitmap!!,
-                    contentDescription = "Icono de ${juego.nombre}",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit // Ajusta el icono al Box
+            // Icono
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.Gray.copy(alpha = 0.3f))
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (iconBitmap != null) {
+                    Image(
+                        bitmap = iconBitmap!!,
+                        contentDescription = "Icono de ${juego.nombre}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Textos
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = juego.nombre,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = juego.ruta,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-            // Si iconBitmap es null, solo se ve el Box gris (el placeholder)
-        }
 
-        Spacer(modifier = Modifier.width(16.dp)) // Espacio entre icono y texto
+            // Botones
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    try { ProcessBuilder(juego.ruta).start() }
+                    catch (e: IOException) { e.printStackTrace() }
+                }) { Text("Lanzar") }
 
-        // Columna de Texto
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = juego.nombre,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = juego.ruta,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        //Fila de botones
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                try {
-                    ProcessBuilder(juego.ruta).start()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-            }) { Text("Lanzar") }
-
-            Button(onClick = {
-                try {
-                    val file = File(juego.ruta)
-                    if (file.parentFile == null) return@Button
-                    val directory = file.parentFile
-                    if (directory != null && directory.exists()) {
-                        Desktop.getDesktop().open(directory)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }) { Text("Explorar ruta") }
+                Button(onClick = {
+                    try {
+                        val file = File(juego.ruta)
+                        if (file.parentFile == null) return@Button
+                        val directory = file.parentFile
+                        if (directory != null && directory.exists()) {
+                            Desktop.getDesktop().open(directory)
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
+                }) { Text("Explorar ruta") }
+            }
         }
     }
 }
