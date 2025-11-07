@@ -97,7 +97,12 @@ fun App(window: Window) { // Recibe la ventana
 
         // --- ¡ESTE ES EL ORDEN CORRECTO DEL LAYOUT! ---
         Column(modifier = Modifier.fillMaxSize()) {
-
+            Text(
+                // Leemos el valor directamente de nuestro objeto DetectorSO
+                text = "Sistema Operativo detectado: ${DetectorSO.osName}",
+                style = MaterialTheme.typography.labelSmall, // Un estilo discreto
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
             // --- 1. PRIMERO: El Row de botones ---
             Row(
                 modifier = Modifier.fillMaxWidth().padding(8.dp),

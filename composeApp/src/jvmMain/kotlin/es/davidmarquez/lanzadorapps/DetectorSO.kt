@@ -9,6 +9,9 @@ object DetectorSO {
     /**
      * Un enum para tener tipos seguros de SO.
      */
+
+    val osName: String = System.getProperty("os.name")
+
     enum class SistemaOperativo {
         WINDOWS,
         LINUX,
@@ -22,8 +25,6 @@ object DetectorSO {
      */
     val actual: SistemaOperativo by lazy {
         // Obtenemos el nombre del SO de las propiedades del sistema
-        val osName = System.getProperty("os.name").lowercase()
-
         // 'when' es el 'switch' mejorado de Kotlin
         when {
             osName.contains("win") -> SistemaOperativo.WINDOWS
