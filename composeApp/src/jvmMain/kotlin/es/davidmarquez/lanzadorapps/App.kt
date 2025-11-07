@@ -1,6 +1,6 @@
 package es.davidmarquez.lanzadorapps
 
-// Tus importaciones (he quitado las de iconos)
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,11 +24,29 @@ import java.awt.Window
 import java.io.File
 import java.io.FilenameFilter
 import java.io.IOException
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 
+// Define los tipos de filtro que permitimos
+enum class TipoFiltro {
+    TODAS,
+    SISTEMA,
+    USUARIO
+}
+
+// Define los tipos de ordenación
+enum class TipoOrden {
+    ALFABETICO_ASC,
+    ALFABETICO_DESC
+    // Podríamos añadir TAMAÑO_ASC/DESC si modificáramos el Scanner
+}
 // La data class (sin 'icono')
 data class Juego(
     val nombre: String,
     val ruta: String,
+    val isSystemApp: Boolean = false
 )
 
 @Composable
@@ -40,15 +58,41 @@ fun App(window: Window) { // Recibe la ventana
         val estaEscaneando = remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
         val searchTextState = remember { mutableStateOf("") }
+        val filtroState = remember { mutableStateOf(TipoFiltro.TODAS) }
+        val ordenState = remember { mutableStateOf(TipoOrden.ALFABETICO_ASC) }
 
-        val listaFiltrada = remember(juegosState.value, searchTextState.value) {
-            if (searchTextState.value.isBlank()) {
-                juegosState.value
-            } else {
-                juegosState.value.filter { juego ->
+        val listaFiltrada = remember(
+            juegosState.value,    // Si la lista base cambia
+            searchTextState.value, // Si el texto cambia
+            filtroState.value,     // Si el filtro cambia
+            ordenState.value       // Si el orden cambia
+        ) {
+
+            // 1. Empezamos con la lista completa
+            var lista = juegosState.value
+
+            // 2. Aplicamos el FILTRO (TODAS, SISTEMA, USUARIO)
+            lista = when (filtroState.value) {
+                TipoFiltro.TODAS -> lista
+                TipoFiltro.SISTEMA -> lista.filter { it.isSystemApp }
+                TipoFiltro.USUARIO -> lista.filter { !it.isSystemApp }
+            }
+
+            // 3. Aplicamos la BÚSQUEDA (por texto)
+            if (searchTextState.value.isNotBlank()) {
+                lista = lista.filter { juego ->
                     juego.nombre.contains(searchTextState.value, ignoreCase = true)
                 }
             }
+
+            // 4. Aplicamos el ORDEN
+            lista = when (ordenState.value) {
+                TipoOrden.ALFABETICO_ASC -> lista.sortedBy { it.nombre }
+                TipoOrden.ALFABETICO_DESC -> lista.sortedByDescending { it.nombre }
+            }
+
+            // 5. Devolvemos la lista final
+            lista
         }
 
         // --- ¡ESTE ES EL ORDEN CORRECTO DEL LAYOUT! ---
@@ -90,6 +134,7 @@ fun App(window: Window) { // Recibe la ventana
                             val nuevoJuego = Juego(
                                 nombre = file.removeSuffix(".exe"),
                                 ruta = File(directory, file).absolutePath,
+                                isSystemApp = false
                             )
                             juegosState.value = juegosState.value + nuevoJuego
                         }
@@ -108,7 +153,125 @@ fun App(window: Window) { // Recibe la ventana
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 singleLine = true
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // --- Menú Desplegable 1: FILTRAR ---
+                var expandedFiltro by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { expandedFiltro = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Filtrar: ${filtroState.value.name}")
+                    }
 
+                    DropdownMenu(
+                        expanded = expandedFiltro,
+                        onDismissRequest = { expandedFiltro = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { // <-- Asegúrate de que tu versión de M3 usa 'text ='
+                                Text(
+                                    "Todas las Apps",
+                                    color = if (filtroState.value == TipoFiltro.TODAS)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                filtroState.value = TipoFiltro.TODAS
+                                expandedFiltro = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Apps de Sistema",
+                                    color = if (filtroState.value == TipoFiltro.SISTEMA)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                filtroState.value = TipoFiltro.SISTEMA
+                                expandedFiltro = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Apps de Usuario",
+                                    color = if (filtroState.value == TipoFiltro.USUARIO)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                filtroState.value = TipoFiltro.USUARIO
+                                expandedFiltro = false
+                            }
+                        )
+                    }
+                }
+
+                // --- Menú Desplegable 2: ORDENAR ---
+                var expandedOrden by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { expandedOrden = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(when (ordenState.value) {
+                            TipoOrden.ALFABETICO_ASC -> "Orden: A-Z"
+                            TipoOrden.ALFABETICO_DESC -> "Orden: Z-A"
+                        })
+                    }
+
+                    DropdownMenu(
+                        expanded = expandedOrden,
+                        onDismissRequest = { expandedOrden = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Nombre (A-Z)",
+                                    color = if (ordenState.value == TipoOrden.ALFABETICO_ASC)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                ordenState.value = TipoOrden.ALFABETICO_ASC
+                                expandedOrden = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Nombre (Z-A)",
+                                    color = if (ordenState.value == TipoOrden.ALFABETICO_DESC)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                ordenState.value = TipoOrden.ALFABETICO_DESC
+                                expandedOrden = false
+                            }
+                        )
+                    }
+                }
+            }
             // --- 3. TERCERO: El indicador de carga o contador ---
             if (estaEscaneando.value) {
                 Box(

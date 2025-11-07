@@ -61,7 +61,9 @@ object Scanner {
                     if (!yaExiste) {
                         juegosEncontrados.add(Juego(
                             nombre = appFile.nameWithoutExtension,
-                            ruta = appFile.absolutePath))
+                            ruta = appFile.absolutePath ,
+                            isSystemApp = true
+                        ))
                     }
                 }
             }
