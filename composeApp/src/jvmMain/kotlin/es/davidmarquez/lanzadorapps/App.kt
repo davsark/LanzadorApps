@@ -152,101 +152,73 @@ fun App(window: Window) { // Recibe la ventana
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- 1. PRIMERO: El Row de botones ---
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Botón de Escanear sistema en busca de apps
-                Button(
-                    enabled = !estaEscaneando.value,
-                    onClick = {
-                        scope.launch {
-                            estaEscaneando.value = true
-                            try {
-                                val juegosEncontrados = withContext(Dispatchers.IO) {
-                                    Scanner.escanearJuegos()
-                                }
-                                juegosState.value = juegosEncontrados
-                                println("✅ Escaneo completado: ${juegosEncontrados.size} apps encontradas")
-                            } catch (e: Exception) {
-                                println("❌ Error durante el escaneo: ${e.message}")
-                                e.printStackTrace()
-                            } finally {
-                                estaEscaneando.value = false
+            // --- 1. NUEVO LAYOUT: Botón Escanear (Principal) ---
+            OutlinedButton(
+                enabled = !estaEscaneando.value,
+                onClick = {
+                    scope.launch {
+                        estaEscaneando.value = true
+                        try {
+                            val juegosEncontrados = withContext(Dispatchers.IO) {
+                                Scanner.escanearJuegos()
                             }
+                            juegosState.value = juegosEncontrados
+                            println("✅ Escaneo completado: ${juegosEncontrados.size} apps encontradas")
+                        } catch (e: Exception) {
+                            println("❌ Error durante el escaneo: ${e.message}")
+                            e.printStackTrace()
+                        } finally {
+                            estaEscaneando.value = false
                         }
-                    },
-                    modifier = Modifier.weight(1f).height(48.dp), // Añade altura
-
-                ) {
-                    Text(
-                        "🔍 Escanear Sistema", // Añade emoji
-                        style = MaterialTheme.typography.labelLarge // Añade estilo
-                    )
-                }
-
-                // Botón de Añadir  App Manualmente
-                OutlinedButton(
-                    enabled = !estaEscaneando.value,
-                    onClick = {
-                        val fileDialog = FileDialog(window as Frame, "Seleccionar aplicación (.exe)", FileDialog.LOAD).apply {
-                            filenameFilter = FilenameFilter { _, name -> name.endsWith(".exe") }
-                            isMultipleMode = false
-                            isVisible = true
-                        }
-                        val directory = fileDialog.directory
-                        val file = fileDialog.file
-                        if (directory != null && file != null) {
-                            val nuevoJuego = Juego(
-                                nombre = file.removeSuffix(".exe"),
-                                ruta = File(directory, file).absolutePath,
-                                isSystemApp = false
-                            )
-                            juegosState.value = juegosState.value + nuevoJuego
-                        }
-                    },
-                    modifier = Modifier.weight(1f).height(48.dp)
-                ) {
-                    Text("➕ Añadir App",
-                    style = MaterialTheme.typography.labelLarge
-                    )
-                }
-            } // --- Fin del Row de botones ---
-
-            // --- 2. SEGUNDO: La barra de búsqueda ---
-            OutlinedTextField(
-                value = searchTextState.value,
-                onValueChange = { searchTextState.value = it },
-                label = { Text("🔎 Buscar aplicación...") },
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                singleLine = true,
-                shape = MaterialTheme.shapes.medium,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.secondary,  // Borde cyan cuando está activo
-                    focusedLabelColor = MaterialTheme.colorScheme.secondary,   // Label cyan cuando está activo
-                    cursorColor = MaterialTheme.colorScheme.secondary,         // Cursor cyan
-                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),  // Borde gris cuando no está activo
-                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)    // Label gris cuando no está activo
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+            ) {
+                Text(
+                    "🔍 Escanear Sistema",
+                    style = MaterialTheme.typography.labelLarge
                 )
-            )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
+            // --- 2. NUEVO LAYOUT: Fila de Búsqueda y Filtros ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically // <-- Clave para alinear todo
             ) {
+
+                // --- Barra de Búsqueda (con peso) ---
+                OutlinedTextField(
+                    value = searchTextState.value,
+                    onValueChange = { searchTextState.value = it },
+                    label = { Text("🔎 Buscar...") }, // <-- Texto acortado
+                    modifier = Modifier.weight(1f), // <-- Ocupa el espacio sobrante
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                        focusedLabelColor = MaterialTheme.colorScheme.secondary,
+                        cursorColor = MaterialTheme.colorScheme.secondary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.secondary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.secondary
+                    )
+                )
+
                 // --- Menú Desplegable 1: FILTRAR ---
                 var expandedFiltro by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.weight(1f)) {
+                Box { // <-- SIN .weight()
                     OutlinedButton(
                         onClick = { expandedFiltro = true },
-                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                        modifier = Modifier.height(56.dp), // <-- Altura 56.dp
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
                     ) {
                         Text(when (filtroState.value) {
                             TipoFiltro.TODAS -> "📱 Todas"
@@ -259,8 +231,10 @@ fun App(window: Window) { // Recibe la ventana
                         expanded = expandedFiltro,
                         onDismissRequest = { expandedFiltro = false }
                     ) {
+                        // ... (El código de tus DropdownMenuItem va aquí) ...
+                        // (Asegúrate de que el código del menú desplegable esté aquí dentro)
                         DropdownMenuItem(
-                            text = { // <-- Asegúrate de que tu versión de M3 usa 'text ='
+                            text = {
                                 Text(
                                     "Todas las Apps",
                                     color = if (filtroState.value == TipoFiltro.TODAS)
@@ -308,10 +282,11 @@ fun App(window: Window) { // Recibe la ventana
 
                 // --- Menú Desplegable 2: ORDENAR ---
                 var expandedOrden by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.weight(1f)) {
+                Box { // <-- SIN .weight()
                     OutlinedButton(
                         onClick = { expandedOrden = true },
-                        modifier = Modifier.fillMaxWidth().height(42.dp)
+                        modifier = Modifier.height(56.dp), // <-- Altura 56.dp
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
                     ) {
                         Text(when (ordenState.value) {
                             TipoOrden.ALFABETICO_ASC -> "🔤 A-Z"
@@ -323,6 +298,8 @@ fun App(window: Window) { // Recibe la ventana
                         expanded = expandedOrden,
                         onDismissRequest = { expandedOrden = false }
                     ) {
+                        // ... (El código de tus DropdownMenuItem va aquí) ...
+                        // (Asegúrate de que el código del menú desplegable esté aquí dentro)
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -355,8 +332,43 @@ fun App(window: Window) { // Recibe la ventana
                         )
                     }
                 }
-            }
+            } // --- Fin del Row de Búsqueda y Filtros ---
+
             Spacer(modifier = Modifier.height(12.dp))
+
+            // --- 3. NUEVO LAYOUT: Botón Añadir App ---
+            OutlinedButton(
+                enabled = !estaEscaneando.value,
+                onClick = {
+                    val fileDialog = FileDialog(window as Frame, "Seleccionar aplicación (.exe)", FileDialog.LOAD).apply {
+                        filenameFilter = FilenameFilter { _, name -> name.endsWith(".exe") }
+                        isMultipleMode = false
+                        isVisible = true
+                    }
+                    val directory = fileDialog.directory
+                    val file = fileDialog.file
+                    if (directory != null && file != null) {
+                        val nuevoJuego = Juego(
+                            nombre = file.removeSuffix(".exe"),
+                            ruta = File(directory, file).absolutePath,
+                            isSystemApp = false
+                        )
+                        juegosState.value = juegosState.value + nuevoJuego
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(56.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+            ) {
+                Text("➕ Añadir App",
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // --- 3. TERCERO: El indicador de carga o contador ---
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -371,13 +383,15 @@ fun App(window: Window) { // Recibe la ventana
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        strokeWidth = 3.dp
+                        strokeWidth = 3.dp,
+                        color = MaterialTheme.colorScheme.secondary
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = "Escaneando aplicaciones...",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.White
+
                     )
                 }
             } else {
@@ -503,14 +517,13 @@ fun FilaDeJuego(juego: Juego) {
 
             // Botones mejorados
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
+                OutlinedButton(
                     onClick = {
                         try { ProcessBuilder(juego.ruta).start() }
                         catch (e: IOException) { e.printStackTrace() }
                     },
-                    colors = ButtonDefaults.buttonColors( // <-- Color primario
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+
                 ) {
                     Text("▶️ Lanzar") // <-- Emoji añadido
                 }
@@ -524,8 +537,10 @@ fun FilaDeJuego(juego: Juego) {
                             Desktop.getDesktop().open(directory)
                         }
                     } catch (e: Exception) { e.printStackTrace() }
-                }) {
-                    Text("📁") // <-- CAMBIO: Texto por icono
+                },
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+                    ) {
+                    Text("📁 Ubicación") // <-- CAMBIO: Texto por icono
                 }
             }
         }
