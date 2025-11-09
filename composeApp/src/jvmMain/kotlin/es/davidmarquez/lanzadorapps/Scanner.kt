@@ -24,9 +24,6 @@ object Scanner {
 
 
     fun escanearJuegos(): List<Juego> {
-        println("🔍 DetectorSO.actual = ${DetectorSO.actual}")
-        println("🔍 DetectorSO.osName = ${DetectorSO.osName}")
-
         return when (DetectorSO.actual) {
             DetectorSO.SistemaOperativo.WINDOWS -> escanearWindows()
             DetectorSO.SistemaOperativo.LINUX -> escanearLinux()
@@ -124,7 +121,79 @@ object Scanner {
     }
 
     private fun escanearLinux(): List<Juego> {
-        println("Escaneo de Linux... (no implementado)")
-        return emptyList()
+        println("Escaneando en Linux...")
+        val appsEncontradas = mutableListOf<Juego>()
+
+        // Directorio principal de aplicaciones del sistema
+        val applicationsDir = File("/usr/share/applications")
+
+        if (!applicationsDir.exists() || !applicationsDir.isDirectory) {
+            println("⚠️ No se encontró el directorio /usr/share/applications")
+            return emptyList()
+        }
+
+        // Obtener todos los archivos .desktop
+        val desktopFiles = applicationsDir.listFiles { file ->
+            file.isFile && file.name.endsWith(".desktop")
+        } ?: emptyArray()
+
+        println("📁 Encontrados ${desktopFiles.size} archivos .desktop")
+
+        for (desktopFile in desktopFiles) {
+            try {
+                val appInfo = parsearDesktopFile(desktopFile)
+
+                if (appInfo != null) {
+                    // Verificar que no exista ya en la lista
+                    val yaExiste = appsEncontradas.any { it.nombre == appInfo.nombre }
+                    if (!yaExiste) {
+                        appsEncontradas.add(appInfo)
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignorar archivos .desktop mal formados
+                println("⚠️ Error leyendo ${desktopFile.name}: ${e.message}")
+            }
+        }
+
+        println("Escaneo de Linux finalizado. Encontradas: ${appsEncontradas.size} aplicaciones.")
+        return appsEncontradas.sortedBy { it.nombre }
+    }
+    /**
+     * Función helper para parsear archivos .desktop de Linux
+     * Retorna un objeto Juego si se pudo leer correctamente, o null si falla
+     */
+    private fun parsearDesktopFile(file: File): Juego? {
+        var nombre: String? = null
+        var exec: String? = null
+
+        // Leer el archivo línea por línea
+        file.readLines().forEach { linea ->
+            val lineaTrim = linea.trim()
+
+            when {
+                // Buscar la línea Name= (sin locale como [es] o [en])
+                lineaTrim.startsWith("Name=") && !lineaTrim.contains("[") -> {
+                    nombre = lineaTrim.substringAfter("Name=").trim()
+                }
+                // Buscar la línea Exec=
+                lineaTrim.startsWith("Exec=") -> {
+                    val execCompleto = lineaTrim.substringAfter("Exec=").trim()
+                    // Tomar solo la primera palabra (antes del espacio o argumentos)
+                    exec = execCompleto.split(" ").firstOrNull()?.trim()
+                }
+            }
+        }
+
+        // Solo crear el Juego si tenemos tanto nombre como exec
+        return if (nombre != null && exec != null && nombre!!.isNotBlank() && exec!!.isNotBlank()) {
+            Juego(
+                nombre = nombre!!,
+                ruta = exec!!,
+                isSystemApp = true
+            )
+        } else {
+            null
+        }
     }
 }

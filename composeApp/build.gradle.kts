@@ -34,12 +34,37 @@ kotlin {
 
 compose.desktop {
     application {
+        // Esta es tu clase principal, está correcta
         mainClass = "es.davidmarquez.lanzadorapps.MainKt"
 
         nativeDistributions {
+            // Los formatos que quieres generar
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+
+            // ID interno de la app (el tuyo estaba bien)
             packageName = "es.davidmarquez.lanzadorapps"
-            packageVersion = "1.0.0"
+
+            // Versión (es mejor usar 'version' que 'packageVersion')
+            version = "1.0.0"
+
+            // --- Información adicional para el instalador ---
+            description = "Un lanzador de apps simple"
+            vendor = "David Marquez"
+
+            // --- Configuración Específica de Windows ---
+            windows {
+                menuGroup = "Lanzador de Apps"
+                // Apunta a tu icono .ico
+                iconFile.set(project.file("src/jvmMain/resources/lanzador_icono.ico"))
+            }
+
+            // --- Configuración Específica de Linux ---
+            linux {
+                // Nombre del paquete en Linux (distinto al 'packageName' general)
+                packageName = "lanzador-de-apps"
+                // Apunta a tu icono .png
+                iconFile.set(project.file("src/jvmMain/resources/lanzador_icono.png"))
+            }
         }
     }
 }
