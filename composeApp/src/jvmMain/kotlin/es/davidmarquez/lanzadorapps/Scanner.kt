@@ -24,10 +24,16 @@ object Scanner {
 
 
     fun escanearJuegos(): List<Juego> {
+        println("🔍 DetectorSO.actual = ${DetectorSO.actual}")
+        println("🔍 DetectorSO.osName = ${DetectorSO.osName}")
+
         return when (DetectorSO.actual) {
             DetectorSO.SistemaOperativo.WINDOWS -> escanearWindows()
             DetectorSO.SistemaOperativo.LINUX -> escanearLinux()
-            DetectorSO.SistemaOperativo.OTRO -> emptyList()
+            DetectorSO.SistemaOperativo.OTRO -> {
+                println("⚠️ Sistema operativo no reconocido") // <-- Esto es lo nuevo
+                emptyList()
+            }
         }
     }
 

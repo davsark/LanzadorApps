@@ -25,10 +25,11 @@ object DetectorSO {
      */
     val actual: SistemaOperativo by lazy {
         // Obtenemos el nombre del SO de las propiedades del sistema
+        val osNameLower = osName.lowercase()
         // 'when' es el 'switch' mejorado de Kotlin
         when {
-            osName.contains("win") -> SistemaOperativo.WINDOWS
-            osName.contains("nix") || osName.contains("nux") -> SistemaOperativo.LINUX
+            osNameLower.contains("win") -> SistemaOperativo.WINDOWS
+            osNameLower.contains("nix") || osName.contains("nux") -> SistemaOperativo.LINUX
             else -> SistemaOperativo.OTRO
         }
     }

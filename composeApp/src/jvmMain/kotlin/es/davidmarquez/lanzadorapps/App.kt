@@ -137,11 +137,18 @@ fun App(window: Window) { // Recibe la ventana
                     onClick = {
                         scope.launch {
                             estaEscaneando.value = true
-                            val juegosEncontrados = withContext(Dispatchers.IO) {
-                                Scanner.escanearJuegos()
+                            try {
+                                val juegosEncontrados = withContext(Dispatchers.IO) {
+                                    Scanner.escanearJuegos()
+                                }
+                                juegosState.value = juegosEncontrados
+                                println("✅ Escaneo completado: ${juegosEncontrados.size} apps encontradas")
+                            } catch (e: Exception) {
+                                println("❌ Error durante el escaneo: ${e.message}")
+                                e.printStackTrace()
+                            } finally {
+                                estaEscaneando.value = false
                             }
-                            juegosState.value = juegosEncontrados
-                            estaEscaneando.value = false
                         }
                     },
                     modifier = Modifier.weight(1f).height(48.dp), // Añade altura
