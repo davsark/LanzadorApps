@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.BorderStroke
 
 // Define los tipos de filtro que permitimos
 enum class TipoFiltro {
@@ -54,11 +55,36 @@ data class Juego(
 fun App(window: Window) { // Recibe la ventana
     MaterialTheme (
         colorScheme = darkColorScheme(
+            // Colores principales
             primary = Color(0xFF6200EE),
+            onPrimary = Color.White,  // <-- AÑADIDO: texto blanco sobre botones morados
+
             secondary = Color(0xFF03DAC6),
+            onSecondary = Color.Black,  // <-- AÑADIDO: texto negro sobre cyan
+
             tertiary = Color(0xFF3700B3),
+            onTertiary = Color.White,  // <-- AÑADIDO: texto blanco sobre morado oscuro
+
+            // Fondos
             background = Color(0xFF121212),
-            surface = Color(0xFF1E1E1E)
+            onBackground = Color.White,  // <-- AÑADIDO: texto blanco sobre fondo negro
+
+            surface = Color(0xFF1E1E1E),
+            onSurface = Color.White,  // <-- AÑADIDO: texto blanco sobre superficie gris
+
+            // Contenedores (usados por badges, chips, etc.)
+            primaryContainer = Color(0xFF3700B3),
+            onPrimaryContainer = Color(0xFFE1DDFF),
+
+            secondaryContainer = Color(0xFF005353),
+            onSecondaryContainer = Color(0xFFA6EEED),
+
+            tertiaryContainer = Color(0xFF4A148C),
+            onTertiaryContainer = Color(0xFFEADDFF),
+
+            // Estados de error
+            error = Color(0xFFCF6679),
+            onError = Color.Black
         )
     ){
         val juegosState = remember { mutableStateOf<List<Juego>>(emptyList()) }
@@ -114,7 +140,7 @@ fun App(window: Window) { // Recibe la ventana
                     Text(
                         text = "🚀 Lanzador de Apps",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.White
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -152,9 +178,7 @@ fun App(window: Window) { // Recibe la ventana
                         }
                     },
                     modifier = Modifier.weight(1f).height(48.dp), // Añade altura
-                    colors = ButtonDefaults.buttonColors( // Añade color primario
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+
                 ) {
                     Text(
                         "🔍 Escanear Sistema", // Añade emoji
@@ -199,7 +223,14 @@ fun App(window: Window) { // Recibe la ventana
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 singleLine = true,
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.secondary,  // Borde cyan cuando está activo
+                    focusedLabelColor = MaterialTheme.colorScheme.secondary,   // Label cyan cuando está activo
+                    cursorColor = MaterialTheme.colorScheme.secondary,         // Cursor cyan
+                    unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),  // Borde gris cuando no está activo
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)    // Label gris cuando no está activo
+                )
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -233,7 +264,7 @@ fun App(window: Window) { // Recibe la ventana
                                 Text(
                                     "Todas las Apps",
                                     color = if (filtroState.value == TipoFiltro.TODAS)
-                                        MaterialTheme.colorScheme.primary
+                                        Color.White
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -248,7 +279,7 @@ fun App(window: Window) { // Recibe la ventana
                                 Text(
                                     "Apps de Sistema",
                                     color = if (filtroState.value == TipoFiltro.SISTEMA)
-                                        MaterialTheme.colorScheme.primary
+                                        Color.White
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -263,8 +294,7 @@ fun App(window: Window) { // Recibe la ventana
                                 Text(
                                     "Apps de Usuario",
                                     color = if (filtroState.value == TipoFiltro.USUARIO)
-                                        MaterialTheme.colorScheme.primary
-                                    else
+                                        Color.White                                    else
                                         MaterialTheme.colorScheme.onSurface
                                 )
                             },
@@ -298,7 +328,7 @@ fun App(window: Window) { // Recibe la ventana
                                 Text(
                                     "Nombre (A-Z)",
                                     color = if (ordenState.value == TipoOrden.ALFABETICO_ASC)
-                                        MaterialTheme.colorScheme.primary
+                                        Color.White
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -313,7 +343,7 @@ fun App(window: Window) { // Recibe la ventana
                                 Text(
                                     "Nombre (Z-A)",
                                     color = if (ordenState.value == TipoOrden.ALFABETICO_DESC)
-                                        MaterialTheme.colorScheme.primary
+                                        Color.White
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
