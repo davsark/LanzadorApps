@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextOverflow
 
 // Define los tipos de filtro que permitimos
 enum class TipoFiltro {
@@ -52,7 +53,13 @@ data class Juego(
 @Composable
 fun App(window: Window) { // Recibe la ventana
     MaterialTheme (
-        colorScheme = darkColorScheme() // 1. Tema oscuro
+        colorScheme = darkColorScheme(
+            primary = Color(0xFF6200EE),
+            secondary = Color(0xFF03DAC6),
+            tertiary = Color(0xFF3700B3),
+            background = Color(0xFF121212),
+            surface = Color(0xFF1E1E1E)
+        )
     ){
         val juegosState = remember { mutableStateOf<List<Juego>>(emptyList()) }
         val estaEscaneando = remember { mutableStateOf(false) }
@@ -96,19 +103,35 @@ fun App(window: Window) { // Recibe la ventana
         }
 
         // --- ¡ESTE ES EL ORDEN CORRECTO DEL LAYOUT! ---
-        Column(modifier = Modifier.fillMaxSize()) {
-            Text(
-                // Leemos el valor directamente de nuestro objeto DetectorSO
-                text = "Sistema Operativo detectado: ${DetectorSO.osName}",
-                style = MaterialTheme.typography.labelSmall, // Un estilo discreto
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
+        Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            // --- ENCABEZADO ---
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 4.dp
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "🚀 Lanzador de Apps",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Sistema: ${DetectorSO.osName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             // --- 1. PRIMERO: El Row de botones ---
             Row(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Botón de Escanear
+                // Botón de Escanear sistema en busca de apps
                 Button(
                     enabled = !estaEscaneando.value,
                     onClick = {
@@ -121,11 +144,19 @@ fun App(window: Window) { // Recibe la ventana
                             estaEscaneando.value = false
                         }
                     },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Escanear Sistema") }
+                    modifier = Modifier.weight(1f).height(48.dp), // Añade altura
+                    colors = ButtonDefaults.buttonColors( // Añade color primario
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        "🔍 Escanear Sistema", // Añade emoji
+                        style = MaterialTheme.typography.labelLarge // Añade estilo
+                    )
+                }
 
-                // Botón de Añadir Manualmente
-                Button(
+                // Botón de Añadir  App Manualmente
+                OutlinedButton(
                     enabled = !estaEscaneando.value,
                     onClick = {
                         val fileDialog = FileDialog(window as Frame, "Seleccionar aplicación (.exe)", FileDialog.LOAD).apply {
@@ -144,25 +175,32 @@ fun App(window: Window) { // Recibe la ventana
                             juegosState.value = juegosState.value + nuevoJuego
                         }
                     },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Añadir Manualmente") }
+                    modifier = Modifier.weight(1f).height(48.dp)
+                ) {
+                    Text("➕ Añadir App",
+                    style = MaterialTheme.typography.labelLarge
+                    )
+                }
             } // --- Fin del Row de botones ---
 
             // --- 2. SEGUNDO: La barra de búsqueda ---
             OutlinedTextField(
                 value = searchTextState.value,
                 onValueChange = { searchTextState.value = it },
-                label = { Text("Buscar por nombre...") },
+                label = { Text("🔎 Buscar aplicación...") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                singleLine = true
+                    .padding(horizontal = 16.dp),
+                singleLine = true,
+                shape = MaterialTheme.shapes.medium
             )
+            Spacer(modifier = Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // --- Menú Desplegable 1: FILTRAR ---
@@ -170,9 +208,13 @@ fun App(window: Window) { // Recibe la ventana
                 Box(modifier = Modifier.weight(1f)) {
                     OutlinedButton(
                         onClick = { expandedFiltro = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(42.dp)
                     ) {
-                        Text("Filtrar: ${filtroState.value.name}")
+                        Text(when (filtroState.value) {
+                            TipoFiltro.TODAS -> "📱 Todas"
+                            TipoFiltro.SISTEMA -> "⚙️ Sistema"
+                            TipoFiltro.USUARIO -> "👤 Usuario"
+                        })
                     }
 
                     DropdownMenu(
@@ -232,11 +274,11 @@ fun App(window: Window) { // Recibe la ventana
                 Box(modifier = Modifier.weight(1f)) {
                     OutlinedButton(
                         onClick = { expandedOrden = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(42.dp)
                     ) {
                         Text(when (ordenState.value) {
-                            TipoOrden.ALFABETICO_ASC -> "Orden: A-Z"
-                            TipoOrden.ALFABETICO_DESC -> "Orden: Z-A"
+                            TipoOrden.ALFABETICO_ASC -> "🔤 A-Z"
+                            TipoOrden.ALFABETICO_DESC -> "🔤 Z-A"
                         })
                     }
 
@@ -277,34 +319,62 @@ fun App(window: Window) { // Recibe la ventana
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
             // --- 3. TERCERO: El indicador de carga o contador ---
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = MaterialTheme.shapes.small
+            ) {
             if (estaEscaneando.value) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 3.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Escaneando aplicaciones...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             } else {
-                Text(
-                    // ¡Contador corregido para usar la lista filtrada!
-                    text = "Aplicaciones encontradas: ${listaFiltrada.size}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            // --- 4. CUARTO: La lista ---
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(listaFiltrada) { juego ->
-                    FilaDeJuego(juego)
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📊 ${listaFiltrada.size} aplicaciones encontradas",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        // --- 4. CUARTO: La lista ---
+            LazyColumn(
+            modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+            items(listaFiltrada) { juego ->
+                FilaDeJuego(juego)
+            }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
         }
+      }
     }
 }
 
-// --- FilaDeJuego (con Card) ---
+// --- FilaDeJuego (con Card mejorada) ---
 @Composable
 fun FilaDeJuego(juego: Juego) {
 
@@ -313,10 +383,12 @@ fun FilaDeJuego(juego: Juego) {
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth(), // <-- Se quita el padding de aquí
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp), // <-- Más elevación
+        colors = CardDefaults.cardColors( // <-- Color de fondo explícito
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = MaterialTheme.shapes.medium // <-- Bordes redondeados
     ) {
         Row(
             modifier = Modifier
@@ -324,55 +396,100 @@ fun FilaDeJuego(juego: Juego) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icono
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.Gray.copy(alpha = 0.3f))
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center
+            // Icono con mejor diseño
+            Surface( // <-- Se cambia Box por Surface
+                modifier = Modifier.size(48.dp), // <-- Más grande (era 40dp)
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             ) {
-                if (iconBitmap != null) {
-                    Image(
-                        bitmap = iconBitmap!!,
-                        contentDescription = "Icono de ${juego.nombre}",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (iconBitmap != null) {
+                        Image(
+                            bitmap = iconBitmap!!,
+                            contentDescription = "Icono de ${juego.nombre}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        // <-- AÑADIDO: Fallback si no hay icono
+                        Text(
+                            text = "📦",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Textos
+            // Textos mejorados
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = juego.nombre,
-                    style = MaterialTheme.typography.titleMedium
-                )
+                // <-- AÑADIDO: Row para poner la etiqueta "Sistema" al lado
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = juego.nombre,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface // <-- Color explícito
+                    )
+                    // <-- AÑADIDO: Lógica de la etiqueta "Sistema"
+                    if (juego.isSystemApp) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.tertiaryContainer
+                        ) {
+                            Text(
+                                text = "Sistema",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp)) // <-- Espacio añadido
                 Text(
                     text = juego.ruta,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), // <-- Color más suave
+                    maxLines = 1, // <-- Para que no ocupe varias líneas
+                    overflow = TextOverflow.Ellipsis // <-- Añadido por si la ruta es muy larga
                 )
             }
 
-            // Botones
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {
-                    try { ProcessBuilder(juego.ruta).start() }
-                    catch (e: IOException) { e.printStackTrace() }
-                }) { Text("Lanzar") }
+            Spacer(modifier = Modifier.width(12.dp))
 
-                Button(onClick = {
+            // Botones mejorados
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        try { ProcessBuilder(juego.ruta).start() }
+                        catch (e: IOException) { e.printStackTrace() }
+                    },
+                    colors = ButtonDefaults.buttonColors( // <-- Color primario
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("▶️ Lanzar") // <-- Emoji añadido
+                }
+
+                OutlinedButton(onClick = { // <-- CAMBIO: Button por OutlinedButton
                     try {
                         val file = File(juego.ruta)
-                        if (file.parentFile == null) return@Button
+                        if (file.parentFile == null) return@OutlinedButton
                         val directory = file.parentFile
                         if (directory != null && directory.exists()) {
                             Desktop.getDesktop().open(directory)
                         }
                     } catch (e: Exception) { e.printStackTrace() }
-                }) { Text("Explorar ruta") }
+                }) {
+                    Text("📁") // <-- CAMBIO: Texto por icono
+                }
             }
         }
     }

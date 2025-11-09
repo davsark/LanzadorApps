@@ -101,10 +101,14 @@ object Scanner {
                     if (pathKeywordsIgnorados.any { rutaEnMinusculas.contains(it) }) {
                         continue
                     }
+                    // Determinar si es una app de sistema basándose en la ubicación
+                    val esAppSistema = rutaEnMinusculas.startsWith("c:\\windows")
 
                     val nuevoJuego = Juego(
                         nombre = archivo.nameWithoutExtension,
-                        ruta = archivo.absolutePath)
+                        ruta = archivo.absolutePath,
+                        isSystemApp = esAppSistema
+                    )
                     lista.add(nuevoJuego)
                 }
             } catch (e: Exception) {
