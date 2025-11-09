@@ -435,12 +435,13 @@ fun FilaDeJuego(juego: Juego) {
 
     Card(
         modifier = Modifier.fillMaxWidth(), // <-- Se quita el padding de aquí
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp), // <-- Más elevación
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp), // <-- Más elevación
         colors = CardDefaults.cardColors( // <-- Color de fondo explícito
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = MaterialTheme.shapes.medium // <-- Bordes redondeados
-    ) {
+        shape = MaterialTheme.shapes.medium, // <-- Bordes redondeados
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
