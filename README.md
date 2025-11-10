@@ -22,10 +22,9 @@ in your IDE’s toolbar or run it directly from the terminal:
   .\gradlew.bat :composeApp:run
   ```
 
----
-```shell
-- to build executable
-.\gradlew.bat packageDistributionForCurrentOS
-```
+- Montar installer
+  ```shell
+  .\gradlew.bat packageDistributionForCurrentOS
+  ```
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
