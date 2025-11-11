@@ -9,7 +9,7 @@ plugins {
 
 kotlin {
     jvm()
-    
+
     sourceSets {
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -55,7 +55,7 @@ compose.desktop {
             windows {
                 menuGroup = "Lanzador de Apps"
                 // Apunta a tu icono .ico
-                iconFile.set(project.file("src/jvmMain/resources/lanzador_icono.ico"))
+                iconFile.set(project.file("src/jvmMain/composeResources/drawable/lanzador_icono.ico"))
             }
 
             // --- Configuración Específica de Linux ---
@@ -63,7 +63,7 @@ compose.desktop {
                 // Nombre del paquete en Linux (distinto al 'packageName' general)
                 packageName = "lanzador-de-apps"
                 // Apunta a tu icono .png
-                iconFile.set(project.file("src/jvmMain/resources/lanzador_icono.png"))
+                iconFile.set(project.file("src/jvmMain/composeResources/drawable/lanzador_icono.png"))
             }
         }
     }
