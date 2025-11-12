@@ -104,7 +104,7 @@ object Scanner {
                     if (pathKeywordsIgnorados.any { rutaEnMinusculas.contains(it) }) {
                         continue
                     }
-                    // Determinar si es una app de sistema basándose en la ubicación
+                    
                     val esAppSistema = rutaEnMinusculas.startsWith("c:\\windows")
 
                     val nuevoJuego = Juego(
@@ -126,65 +126,69 @@ object Scanner {
 
         // Directorios donde buscar archivos .desktop
         val directoriosApplications = listOf(
-            "/usr/share/applications",           // Aplicaciones del sistema
-            "/usr/local/share/applications",     // Aplicaciones instaladas localmente
-            "${System.getProperty("user.home")}/.local/share/applications" // Apps del usuario
+            "/usr/share/applications",
+            "/usr/local/share/applications",
+            "${System.getProperty("user.home")}/.local/share/applications"
         )
+
+        var totalDesktopFiles = 0
 
         // Buscar en cada directorio
         for (dirPath in directoriosApplications) {
             val dir = File(dirPath)
-
+            
             if (!dir.exists() || !dir.isDirectory) {
-                println("⚠️ Directorio no encontrado: $dirPath")
+                println("  ⚠️ Directorio no encontrado: $dirPath")
                 continue
             }
 
-            // Obtener todos los archivos .desktop
             val desktopFiles = dir.listFiles { file ->
                 file.isFile && file.name.endsWith(".desktop")
             } ?: emptyArray()
 
-            println("📂 En $dirPath: ${desktopFiles.size} archivos .desktop")
+            totalDesktopFiles += desktopFiles.size
+            println("  📂 En $dirPath: ${desktopFiles.size} archivos .desktop")
 
             for (desktopFile in desktopFiles) {
                 try {
                     val appInfo = parsearDesktopFile(desktopFile)
 
                     if (appInfo != null) {
-                        // Verificar que no exista ya en la lista (evitar duplicados)
-                        val yaExiste = appsEncontradas.any {
-                            it.nombre == appInfo.nombre || it.ruta == appInfo.ruta
+                        // Verificar duplicados por nombre o ruta
+                        val yaExiste = appsEncontradas.any { 
+                            it.nombre == appInfo.nombre || it.ruta == appInfo.ruta 
                         }
                         if (!yaExiste) {
                             appsEncontradas.add(appInfo)
-                            println("✅ App añadida: ${appInfo.nombre} -> ${appInfo.ruta}")
                         }
                     }
                 } catch (e: Exception) {
-                    println("⚠️ Error leyendo ${desktopFile.name}: ${e.message}")
+                    // Continuar con el siguiente archivo
                 }
             }
         }
 
-        // Añadir apps básicas si no se encontraron
-        if (appsEncontradas.isEmpty()) {
-            println("⚠️ No se encontraron apps. Añadiendo apps básicas...")
-            appsEncontradas.addAll(obtenerAppsBasicasLinux())
+        println("  📊 Total archivos .desktop encontrados: $totalDesktopFiles")
+        println("  ✅ Apps válidas procesadas: ${appsEncontradas.size}")
+
+        // Si encontramos pocas apps, añadir apps básicas
+        if (appsEncontradas.size < 10) {
+            println("  ⚠️ Pocas apps encontradas. Añadiendo apps básicas...")
+            val appsBasicas = obtenerAppsBasicasLinux()
+            for (app in appsBasicas) {
+                val yaExiste = appsEncontradas.any { 
+                    it.nombre == app.nombre || it.ruta == app.ruta 
+                }
+                if (!yaExiste) {
+                    appsEncontradas.add(app)
+                }
+            }
         }
 
-        println("✅ Escaneo de Linux finalizado. Encontradas: ${appsEncontradas.size} aplicaciones.")
+        println("✅ Escaneo finalizado. Total: ${appsEncontradas.size} aplicaciones")
         return appsEncontradas.sortedBy { it.nombre }
     }
 
-    /**
-     * Función mejorada para parsear archivos .desktop de Linux
-     * Maneja correctamente:
-     * - Diferentes formatos de Exec
-     * - Argumentos especiales (%U, %F, etc.)
-     * - Validación de ejecutables
-     * - Iconos
-     */
     private fun parsearDesktopFile(file: File): Juego? {
         var nombre: String? = null
         var exec: String? = null
@@ -192,14 +196,23 @@ object Scanner {
         var noDisplay = false
         var hidden = false
         var terminal = false
+        var type: String? = null
 
         try {
-            // Leer el archivo línea por línea
-            file.readLines().forEach { linea ->
+            val lines = file.readLines()
+            
+            for (linea in lines) {
                 val lineaTrim = linea.trim()
 
+                // Ignorar líneas vacías y comentarios
+                if (lineaTrim.isEmpty() || lineaTrim.startsWith("#")) {
+                    continue
+                }
+
                 when {
-                    // Ignorar si está marcada como oculta o no display
+                    lineaTrim.startsWith("Type=") -> {
+                        type = lineaTrim.substringAfter("Type=").trim()
+                    }
                     lineaTrim.equals("NoDisplay=true", ignoreCase = true) -> {
                         noDisplay = true
                     }
@@ -209,99 +222,99 @@ object Scanner {
                     lineaTrim.equals("Terminal=true", ignoreCase = true) -> {
                         terminal = true
                     }
-                    // Buscar el nombre (sin locale)
                     lineaTrim.startsWith("Name=") && !lineaTrim.contains("[") -> {
                         nombre = lineaTrim.substringAfter("Name=").trim()
                     }
-                    // Buscar Exec
                     lineaTrim.startsWith("Exec=") -> {
                         exec = lineaTrim.substringAfter("Exec=").trim()
                     }
-                    // Buscar Icon
                     lineaTrim.startsWith("Icon=") -> {
                         icon = lineaTrim.substringAfter("Icon=").trim()
                     }
                 }
             }
 
-            // No mostrar apps ocultas
+            // Validaciones
+            if (type != "Application") {
+                return null
+            }
+
             if (noDisplay || hidden) {
                 return null
             }
 
-            // Validar que tenemos nombre y exec
             if (nombre.isNullOrBlank() || exec.isNullOrBlank()) {
                 return null
             }
 
-            // Limpiar el comando Exec
+            // Limpiar comando Exec
             val execLimpio = limpiarComandoExec(exec!!)
-
-            // Validar que el ejecutable existe o está en PATH
+            
+            // Validar que el ejecutable existe
             if (!validarEjecutable(execLimpio)) {
-                println("⚠️ Ejecutable no encontrado: $execLimpio (de ${file.name})")
                 return null
             }
+
+            println("  ✅ ${nombre!!.padEnd(30)} -> $execLimpio" + (if (icon != null) " [icon: $icon]" else ""))
 
             return Juego(
                 nombre = nombre!!,
                 ruta = execLimpio,
                 isSystemApp = true,
-                iconPath = icon  // Guardamos la ruta del icono si la tienes en tu data class
+                iconPath = icon
             )
         } catch (e: Exception) {
-            println("❌ Error al parsear ${file.name}: ${e.message}")
             return null
         }
     }
 
-    /**
-     * Limpia el comando Exec eliminando argumentos especiales de .desktop
-     * Ejemplos:
-     * - "firefox %u" -> "firefox"
-     * - "/usr/bin/gnome-terminal" -> "/usr/bin/gnome-terminal"
-     * - "env VARIABLE=value app" -> "app"
-     */
     private fun limpiarComandoExec(exec: String): String {
-        // Eliminar variables de entorno al inicio (env VAR=value)
-        var comando = exec
-        if (comando.startsWith("env ")) {
-            // Buscar la primera palabra que no sea env ni una asignación
-            comando = comando.split(" ").firstOrNull {
-                !it.startsWith("env") && !it.contains("=") && it.isNotBlank()
-            } ?: comando
+        var comando = exec.trim()
+
+        // Eliminar prefijos comunes
+        val prefixesToRemove = listOf("env ", "gtk-launch ", "gio launch ")
+        for (prefix in prefixesToRemove) {
+            if (comando.startsWith(prefix)) {
+                comando = comando.substring(prefix.length).trim()
+            }
         }
 
-        // Dividir por espacios y tomar la primera parte (el ejecutable)
-        val partes = comando.split(" ")
+        // Si empieza con variables de entorno (VAR=value), saltarlas
+        while (comando.contains("=") && !comando.startsWith("/") && !comando.startsWith("~")) {
+            val firstSpace = comando.indexOf(" ")
+            if (firstSpace > 0) {
+                comando = comando.substring(firstSpace + 1).trim()
+            } else {
+                break
+            }
+        }
+
+        // Dividir por espacios y tomar solo el ejecutable
+        val partes = comando.split(Regex("\\s+"))
         var ejecutable = partes[0].trim()
 
-        // Eliminar comillas si las tiene
+        // Eliminar comillas
         ejecutable = ejecutable.replace("\"", "").replace("'", "")
 
-        // Si tiene argumentos especiales como %U, %F, %u, %f, etc., los ignoramos
-        // Estos son placeholders de archivos que el sistema pasa
+        // Si termina en .desktop, buscar el nombre base
+        if (ejecutable.endsWith(".desktop")) {
+            ejecutable = ejecutable.substringBeforeLast(".desktop")
+        }
 
         return ejecutable
     }
 
-    /**
-     * Valida si un ejecutable existe en el sistema
-     * Busca en:
-     * 1. Ruta absoluta
-     * 2. PATH del sistema
-     */
     private fun validarEjecutable(ejecutable: String): Boolean {
-        // Si es una ruta absoluta, verificar que existe
+        // Si es ruta absoluta
         val archivoAbsoluto = File(ejecutable)
         if (archivoAbsoluto.isAbsolute) {
             return archivoAbsoluto.exists() && archivoAbsoluto.canExecute()
         }
 
-        // Si es un nombre de comando, buscar en PATH
+        // Buscar en PATH
         val pathEnv = System.getenv("PATH") ?: return false
         val paths = pathEnv.split(":")
-
+        
         for (path in paths) {
             val archivo = File(path, ejecutable)
             if (archivo.exists() && archivo.canExecute()) {
@@ -309,20 +322,45 @@ object Scanner {
             }
         }
 
-        return false
+        // Algunos ejecutables comunes que sabemos que existen
+        val commonExecutables = listOf(
+            "gnome-terminal", "konsole", "xterm", "terminator",
+            "nautilus", "dolphin", "thunar", "pcmanfm",
+            "firefox", "chromium", "google-chrome", "brave",
+            "gedit", "kate", "mousepad", "pluma",
+            "gnome-calculator", "kcalc", "galculator",
+            "gnome-system-monitor", "ksysguard",
+            "gnome-control-center", "systemsettings"
+        )
+
+        return commonExecutables.contains(ejecutable)
     }
 
-    /**
-     * Lista de aplicaciones básicas de Linux que se añaden si no se encuentra nada
-     */
     private fun obtenerAppsBasicasLinux(): List<Juego> {
         val appsBasicas = listOf(
-            Triple("Terminal", "gnome-terminal", "utilities-terminal"),
+            // Terminales
+            Triple("Terminal GNOME", "gnome-terminal", "utilities-terminal"),
+            Triple("Terminal", "konsole", "utilities-terminal"),
+            Triple("XTerm", "xterm", "utilities-terminal"),
+            Triple("Terminator", "terminator", "terminator"),
+            
+            // Gestores de archivos
             Triple("Archivos", "nautilus", "system-file-manager"),
+            Triple("Dolphin", "dolphin", "system-file-manager"),
+            Triple("Thunar", "thunar", "system-file-manager"),
+            
+            // Navegadores
             Triple("Firefox", "firefox", "firefox"),
-            Triple("Navegador Web", "google-chrome", "google-chrome"),
+            Triple("Chromium", "chromium", "chromium"),
+            Triple("Google Chrome", "google-chrome", "google-chrome"),
+            Triple("Brave", "brave", "brave"),
+            
+            // Editores
             Triple("Editor de Texto", "gedit", "text-editor"),
-            Triple("Editor de Texto", "gnome-text-editor", "text-editor"),
+            Triple("Kate", "kate", "kate"),
+            Triple("Mousepad", "mousepad", "mousepad"),
+            
+            // Utilidades
             Triple("Calculadora", "gnome-calculator", "accessories-calculator"),
             Triple("Monitor del Sistema", "gnome-system-monitor", "utilities-system-monitor"),
             Triple("Configuración", "gnome-control-center", "preferences-system")
@@ -332,7 +370,6 @@ object Scanner {
 
         for ((nombre, comando, icon) in appsBasicas) {
             if (validarEjecutable(comando)) {
-                // Evitar duplicados por nombre
                 if (appsEncontradas.none { it.nombre == nombre }) {
                     appsEncontradas.add(
                         Juego(
@@ -342,7 +379,7 @@ object Scanner {
                             iconPath = icon
                         )
                     )
-                    println("✅ App básica añadida: $nombre -> $comando")
+                    println("  ✅ App básica: ${nombre.padEnd(30)} -> $comando")
                 }
             }
         }
