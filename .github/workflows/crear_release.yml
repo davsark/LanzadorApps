@@ -1,0 +1,108 @@
+# Nombre del Workflow
+name: Crear y Publicar Release
+
+# 1. DISPARADOR:
+# Se activa solo cuando creas un nuevo "tag" que empieza por 'v'
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 2. TAREAS (JOBS):
+jobs:
+  # ----------------------------------------------------
+  # TAREA 1: Compilar en Windows y Linux
+  # ----------------------------------------------------
+  build:
+    name: Build en ${{ matrix.os }}
+
+    # La Matriz: Ejecuta esto en paralelo para ambos SO
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      # 1. Descarga tu código fuente
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 2. Configura Java (JDK) para Gradle
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. (Solo Linux) Dar permisos de ejecución a gradlew
+      - name: Dar permisos de ejecución a gradlew (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: chmod +x gradlew
+
+      # 4. Ejecuta el comando de Build de Gradle (inteligente)
+      - name: 🏗️ Ejecutar Build con Gradle
+        run: |
+          if ($env:RUNNER_OS -eq "Windows") {
+            .\gradlew.bat packageDistributionForCurrentOS
+          } else {
+            ./gradlew packageDistributionForCurrentOS
+          }
+        shell: pwsh
+
+      # 5. Prepara el instalador de Windows (¡Tu ruta!)
+      - name: 📦 Preparar artefacto (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir dist
+          # Mueve el MSI usando tu ruta específica
+          move build/compose/binaries/main/msi/*.msi dist/lanzador-de-apps-windows.msi
+        shell: pwsh
+
+      # 6. Prepara el instalador de Linux (¡Tu ruta!)
+      - name: 📦 Preparar artefacto (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p dist
+          # Mueve el DEB usando tu ruta específica
+          mv build/compose/binaries/main/deb/*.deb dist/lanzador-de-apps-linux.deb
+
+      # 7. Guarda los instaladores temporalmente
+      - name: 💾 Guardar artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: dist/
+
+  # ----------------------------------------------------
+  # TAREA 2: Crear la Release en GitHub
+  # ----------------------------------------------------
+  release:
+    name: Crear Release
+    # 'needs: build' = Espera a que termine la TAREA 1
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el instalador de Windows
+      - name: ⬇️ Descargar artefacto (Windows)
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-windows-latest
+          path: installers/windows
+
+      # 2. Descarga el instalador de Linux
+      - name: ⬇️ Descargar artefacto (Linux)
+        uses: actions/download-artifact@v4
+        with:
+          name: installer-ubuntu-latest
+          path: installers/linux
+
+      # 3. Crea la Release y sube los dos archivos
+      - name: 🚀 Publicar en GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          # Coge el nombre del tag (ej: v1.0.0) como título
+          # Coge los archivos de estas carpetas
+          files: |
+            installers/windows/*
+            installers/linux/*
