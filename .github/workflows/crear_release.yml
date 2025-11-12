@@ -36,46 +36,51 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: chmod +x gradlew
 
-      # 4. Ejecuta el comando de Build de Gradle (inteligente)
-      - name: 🏗️ Ejecutar Build con Gradle
+      # 4. (Solo Linux) Instalar dependencias para .deb
+      # ⬇️ ⬇️ ⬇️ ¡ESTE ES EL NUEVO PASO AÑADIDO! ⬇️ ⬇️ ⬇️
+      - name: 🛠️ Instalar dependencias de Linux (dpkg)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg
+        shell: bash
+
+      # 5. Limpia y Ejecuta el comando de Build de Gradle
+      - name: 🏗️ Limpiar y Ejecutar Build con Gradle
         run: |
           if ($env:RUNNER_OS -eq "Windows") {
-            .\gradlew.bat packageDistributionForCurrentOS
+            .\gradlew.bat clean packageDistributionForCurrentOS
           } else {
-            ./gradlew packageDistributionForCurrentOS
+            ./gradlew clean packageDistributionForCurrentOS
           }
         shell: pwsh
 
-      # 5. NUEVO PASO PARA DEPURAR (SOLO EN LINUX)
-      # (Este es el paso que añadimos, ahora con la indentación correcta)
+      # 6. PASO PARA DEPURAR (SOLO EN LINUX)
       - name: 🕵️ Listar archivos de build (Debug Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           echo "================================================="
           echo "Listando contenido de build/compose/binaries..."
-          # Este comando lista todo recursivamente para ver qué hay
           ls -R build/compose/binaries
           echo "================================================="
         shell: bash
 
-      # 6. Prepara el instalador de Windows (¡Tu ruta!)
+      # 7. Prepara el instalador de Windows
       - name: 📦 Preparar artefacto (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           mkdir dist
-          # Mueve el MSI usando tu ruta específica
           move build/compose/binaries/main/msi/*.msi dist/lanzador-de-apps-windows.msi
         shell: pwsh
 
-      # 7. Prepara el instalador de Linux (¡Tu ruta!)
+      # 8. Prepara el instalador de Linux
       - name: 📦 Preparar artefacto (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           mkdir -p dist
-          # Mueve el DEB usando tu ruta específica
           mv build/compose/binaries/main/deb/*.deb dist/lanzador-de-apps-linux.deb
 
-      # 8. Guarda los instaladores temporalmente
+      # 9. Guarda los instaladores temporalmente
       - name: 💾 Guardar artefacto
         uses: actions/upload-artifact@v4
         with:
@@ -89,7 +94,6 @@ jobs:
     name: Crear Release
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       # 1. Descarga el instalador de Windows
       - name: ⬇️ Descargar artefacto (Windows)
