@@ -2,7 +2,6 @@
 name: Crear y Publicar Release
 
 # 1. DISPARADOR:
-# Se activa solo cuando creas un nuevo "tag" que empieza por 'v'
 on:
   push:
     tags:
@@ -15,8 +14,6 @@ jobs:
   # ----------------------------------------------------
   build:
     name: Build en ${{ matrix.os }}
-
-    # La Matriz: Ejecuta esto en paralelo para ambos SO
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -49,7 +46,19 @@ jobs:
           }
         shell: pwsh
 
-      # 5. Prepara el instalador de Windows (¡Tu ruta!)
+      # 5. NUEVO PASO PARA DEPURAR (SOLO EN LINUX)
+      # (Este es el paso que añadimos, ahora con la indentación correcta)
+      - name: 🕵️ Listar archivos de build (Debug Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "================================================="
+          echo "Listando contenido de build/compose/binaries..."
+          # Este comando lista todo recursivamente para ver qué hay
+          ls -R build/compose/binaries
+          echo "================================================="
+        shell: bash
+
+      # 6. Prepara el instalador de Windows (¡Tu ruta!)
       - name: 📦 Preparar artefacto (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -58,7 +67,7 @@ jobs:
           move build/compose/binaries/main/msi/*.msi dist/lanzador-de-apps-windows.msi
         shell: pwsh
 
-      # 6. Prepara el instalador de Linux (¡Tu ruta!)
+      # 7. Prepara el instalador de Linux (¡Tu ruta!)
       - name: 📦 Preparar artefacto (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -66,7 +75,7 @@ jobs:
           # Mueve el DEB usando tu ruta específica
           mv build/compose/binaries/main/deb/*.deb dist/lanzador-de-apps-linux.deb
 
-      # 7. Guarda los instaladores temporalmente
+      # 8. Guarda los instaladores temporalmente
       - name: 💾 Guardar artefacto
         uses: actions/upload-artifact@v4
         with:
@@ -78,7 +87,6 @@ jobs:
   # ----------------------------------------------------
   release:
     name: Crear Release
-    # 'needs: build' = Espera a que termine la TAREA 1
     needs: build
     runs-on: ubuntu-latest
 
@@ -101,8 +109,6 @@ jobs:
       - name: 🚀 Publicar en GitHub Releases
         uses: softprops/action-gh-release@v1
         with:
-          # Coge el nombre del tag (ej: v1.0.0) como título
-          # Coge los archivos de estas carpetas
           files: |
             installers/windows/*
             installers/linux/*
