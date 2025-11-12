@@ -37,7 +37,6 @@ jobs:
         run: chmod +x gradlew
 
       # 4. (Solo Linux) Instalar dependencias para .deb
-      # ⬇️ ⬇️ ⬇️ ¡ESTE ES EL NUEVO PASO AÑADIDO! ⬇️ ⬇️ ⬇️
       - name: 🛠️ Instalar dependencias de Linux (dpkg)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -55,32 +54,24 @@ jobs:
           }
         shell: pwsh
 
-      # 6. PASO PARA DEPURAR (SOLO EN LINUX)
-      - name: 🕵️ Listar archivos de build (Debug Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          echo "================================================="
-          echo "Listando contenido de build/compose/binaries..."
-          ls -R build/compose/binaries
-          echo "================================================="
-        shell: bash
-
-      # 7. Prepara el instalador de Windows
+      # 6. Prepara el instalador de Windows (¡Ruta corregida!)
       - name: 📦 Preparar artefacto (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           mkdir dist
-          move build/compose/binaries/main/msi/*.msi dist/lanzador-de-apps-windows.msi
+          # Añadido el prefijo 'composeApp/'
+          move composeApp/build/compose/binaries/main/msi/*.msi dist/lanzador-de-apps-windows.msi
         shell: pwsh
 
-      # 8. Prepara el instalador de Linux
+      # 7. Prepara el instalador de Linux (¡Ruta corregida!)
       - name: 📦 Preparar artefacto (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           mkdir -p dist
-          mv build/compose/binaries/main/deb/*.deb dist/lanzador-de-apps-linux.deb
+          # Añadido el prefijo 'composeApp/'
+          mv composeApp/build/compose/binaries/main/deb/*.deb dist/lanzador-de-apps-linux.deb
 
-      # 9. Guarda los instaladores temporalmente
+      # 8. Guarda los instaladores temporalmente
       - name: 💾 Guardar artefacto
         uses: actions/upload-artifact@v4
         with:
