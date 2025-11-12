@@ -85,6 +85,11 @@ jobs:
     name: Crear Release
     needs: build
     runs-on: ubuntu-latest
+
+    # ⬇️ ⬇️ ⬇️ ¡ESTAS SON LAS 2 LÍNEAS NUEVAS QUE ARREGLAN EL ERROR 403! ⬇️ ⬇️ ⬇️
+    permissions:
+      contents: write
+
     steps:
       # 1. Descarga el instalador de Windows
       - name: ⬇️ Descargar artefacto (Windows)
