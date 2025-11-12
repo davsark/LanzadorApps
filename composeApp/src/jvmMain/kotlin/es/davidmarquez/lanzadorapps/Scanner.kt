@@ -28,7 +28,7 @@ object Scanner {
             DetectorSO.SistemaOperativo.WINDOWS -> escanearWindows()
             DetectorSO.SistemaOperativo.LINUX -> escanearLinux()
             DetectorSO.SistemaOperativo.OTRO -> {
-                println("⚠️ Sistema operativo no reconocido") // <-- Esto es lo nuevo
+                println("⚠️ Sistema operativo no reconocido")
                 emptyList()
             }
         }
@@ -73,7 +73,7 @@ object Scanner {
         }
 
         println("Escaneo de Windows finalizado. Encontrados: ${juegosEncontrados.size} juegos.")
-        return juegosEncontrados.sortedBy { it.nombre } // Ordenados alfabéticamente
+        return juegosEncontrados.sortedBy { it.nombre }
     }
 
     private fun buscarRecursivamente(directorio: File, lista: MutableList<Juego>) {
@@ -121,79 +121,232 @@ object Scanner {
     }
 
     private fun escanearLinux(): List<Juego> {
-        println("Escaneando en Linux...")
+        println("🐧 Escaneando en Linux...")
         val appsEncontradas = mutableListOf<Juego>()
 
-        // Directorio principal de aplicaciones del sistema
-        val applicationsDir = File("/usr/share/applications")
+        // Directorios donde buscar archivos .desktop
+        val directoriosApplications = listOf(
+            "/usr/share/applications",           // Aplicaciones del sistema
+            "/usr/local/share/applications",     // Aplicaciones instaladas localmente
+            "${System.getProperty("user.home")}/.local/share/applications" // Apps del usuario
+        )
 
-        if (!applicationsDir.exists() || !applicationsDir.isDirectory) {
-            println("⚠️ No se encontró el directorio /usr/share/applications")
-            return emptyList()
-        }
+        // Buscar en cada directorio
+        for (dirPath in directoriosApplications) {
+            val dir = File(dirPath)
 
-        // Obtener todos los archivos .desktop
-        val desktopFiles = applicationsDir.listFiles { file ->
-            file.isFile && file.name.endsWith(".desktop")
-        } ?: emptyArray()
+            if (!dir.exists() || !dir.isDirectory) {
+                println("⚠️ Directorio no encontrado: $dirPath")
+                continue
+            }
 
-        println("📁 Encontrados ${desktopFiles.size} archivos .desktop")
+            // Obtener todos los archivos .desktop
+            val desktopFiles = dir.listFiles { file ->
+                file.isFile && file.name.endsWith(".desktop")
+            } ?: emptyArray()
 
-        for (desktopFile in desktopFiles) {
-            try {
-                val appInfo = parsearDesktopFile(desktopFile)
+            println("📂 En $dirPath: ${desktopFiles.size} archivos .desktop")
 
-                if (appInfo != null) {
-                    // Verificar que no exista ya en la lista
-                    val yaExiste = appsEncontradas.any { it.nombre == appInfo.nombre }
-                    if (!yaExiste) {
-                        appsEncontradas.add(appInfo)
+            for (desktopFile in desktopFiles) {
+                try {
+                    val appInfo = parsearDesktopFile(desktopFile)
+
+                    if (appInfo != null) {
+                        // Verificar que no exista ya en la lista (evitar duplicados)
+                        val yaExiste = appsEncontradas.any {
+                            it.nombre == appInfo.nombre || it.ruta == appInfo.ruta
+                        }
+                        if (!yaExiste) {
+                            appsEncontradas.add(appInfo)
+                            println("✅ App añadida: ${appInfo.nombre} -> ${appInfo.ruta}")
+                        }
                     }
+                } catch (e: Exception) {
+                    println("⚠️ Error leyendo ${desktopFile.name}: ${e.message}")
                 }
-            } catch (e: Exception) {
-                // Ignorar archivos .desktop mal formados
-                println("⚠️ Error leyendo ${desktopFile.name}: ${e.message}")
             }
         }
 
-        println("Escaneo de Linux finalizado. Encontradas: ${appsEncontradas.size} aplicaciones.")
+        // Añadir apps básicas si no se encontraron
+        if (appsEncontradas.isEmpty()) {
+            println("⚠️ No se encontraron apps. Añadiendo apps básicas...")
+            appsEncontradas.addAll(obtenerAppsBasicasLinux())
+        }
+
+        println("✅ Escaneo de Linux finalizado. Encontradas: ${appsEncontradas.size} aplicaciones.")
         return appsEncontradas.sortedBy { it.nombre }
     }
+
     /**
-     * Función helper para parsear archivos .desktop de Linux
-     * Retorna un objeto Juego si se pudo leer correctamente, o null si falla
+     * Función mejorada para parsear archivos .desktop de Linux
+     * Maneja correctamente:
+     * - Diferentes formatos de Exec
+     * - Argumentos especiales (%U, %F, etc.)
+     * - Validación de ejecutables
+     * - Iconos
      */
     private fun parsearDesktopFile(file: File): Juego? {
         var nombre: String? = null
         var exec: String? = null
+        var icon: String? = null
+        var noDisplay = false
+        var hidden = false
+        var terminal = false
 
-        // Leer el archivo línea por línea
-        file.readLines().forEach { linea ->
-            val lineaTrim = linea.trim()
+        try {
+            // Leer el archivo línea por línea
+            file.readLines().forEach { linea ->
+                val lineaTrim = linea.trim()
 
-            when {
-                // Buscar la línea Name= (sin locale como [es] o [en])
-                lineaTrim.startsWith("Name=") && !lineaTrim.contains("[") -> {
-                    nombre = lineaTrim.substringAfter("Name=").trim()
+                when {
+                    // Ignorar si está marcada como oculta o no display
+                    lineaTrim.equals("NoDisplay=true", ignoreCase = true) -> {
+                        noDisplay = true
+                    }
+                    lineaTrim.equals("Hidden=true", ignoreCase = true) -> {
+                        hidden = true
+                    }
+                    lineaTrim.equals("Terminal=true", ignoreCase = true) -> {
+                        terminal = true
+                    }
+                    // Buscar el nombre (sin locale)
+                    lineaTrim.startsWith("Name=") && !lineaTrim.contains("[") -> {
+                        nombre = lineaTrim.substringAfter("Name=").trim()
+                    }
+                    // Buscar Exec
+                    lineaTrim.startsWith("Exec=") -> {
+                        exec = lineaTrim.substringAfter("Exec=").trim()
+                    }
+                    // Buscar Icon
+                    lineaTrim.startsWith("Icon=") -> {
+                        icon = lineaTrim.substringAfter("Icon=").trim()
+                    }
                 }
-                // Buscar la línea Exec=
-                lineaTrim.startsWith("Exec=") -> {
-                    val execCompleto = lineaTrim.substringAfter("Exec=").trim()
-                    // Tomar solo la primera palabra (antes del espacio o argumentos)
-                    exec = execCompleto.split(" ").firstOrNull()?.trim()
+            }
+
+            // No mostrar apps ocultas
+            if (noDisplay || hidden) {
+                return null
+            }
+
+            // Validar que tenemos nombre y exec
+            if (nombre.isNullOrBlank() || exec.isNullOrBlank()) {
+                return null
+            }
+
+            // Limpiar el comando Exec
+            val execLimpio = limpiarComandoExec(exec!!)
+
+            // Validar que el ejecutable existe o está en PATH
+            if (!validarEjecutable(execLimpio)) {
+                println("⚠️ Ejecutable no encontrado: $execLimpio (de ${file.name})")
+                return null
+            }
+
+            return Juego(
+                nombre = nombre!!,
+                ruta = execLimpio,
+                isSystemApp = true,
+                iconPath = icon  // Guardamos la ruta del icono si la tienes en tu data class
+            )
+        } catch (e: Exception) {
+            println("❌ Error al parsear ${file.name}: ${e.message}")
+            return null
+        }
+    }
+
+    /**
+     * Limpia el comando Exec eliminando argumentos especiales de .desktop
+     * Ejemplos:
+     * - "firefox %u" -> "firefox"
+     * - "/usr/bin/gnome-terminal" -> "/usr/bin/gnome-terminal"
+     * - "env VARIABLE=value app" -> "app"
+     */
+    private fun limpiarComandoExec(exec: String): String {
+        // Eliminar variables de entorno al inicio (env VAR=value)
+        var comando = exec
+        if (comando.startsWith("env ")) {
+            // Buscar la primera palabra que no sea env ni una asignación
+            comando = comando.split(" ").firstOrNull {
+                !it.startsWith("env") && !it.contains("=") && it.isNotBlank()
+            } ?: comando
+        }
+
+        // Dividir por espacios y tomar la primera parte (el ejecutable)
+        val partes = comando.split(" ")
+        var ejecutable = partes[0].trim()
+
+        // Eliminar comillas si las tiene
+        ejecutable = ejecutable.replace("\"", "").replace("'", "")
+
+        // Si tiene argumentos especiales como %U, %F, %u, %f, etc., los ignoramos
+        // Estos son placeholders de archivos que el sistema pasa
+
+        return ejecutable
+    }
+
+    /**
+     * Valida si un ejecutable existe en el sistema
+     * Busca en:
+     * 1. Ruta absoluta
+     * 2. PATH del sistema
+     */
+    private fun validarEjecutable(ejecutable: String): Boolean {
+        // Si es una ruta absoluta, verificar que existe
+        val archivoAbsoluto = File(ejecutable)
+        if (archivoAbsoluto.isAbsolute) {
+            return archivoAbsoluto.exists() && archivoAbsoluto.canExecute()
+        }
+
+        // Si es un nombre de comando, buscar en PATH
+        val pathEnv = System.getenv("PATH") ?: return false
+        val paths = pathEnv.split(":")
+
+        for (path in paths) {
+            val archivo = File(path, ejecutable)
+            if (archivo.exists() && archivo.canExecute()) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Lista de aplicaciones básicas de Linux que se añaden si no se encuentra nada
+     */
+    private fun obtenerAppsBasicasLinux(): List<Juego> {
+        val appsBasicas = listOf(
+            Triple("Terminal", "gnome-terminal", "utilities-terminal"),
+            Triple("Archivos", "nautilus", "system-file-manager"),
+            Triple("Firefox", "firefox", "firefox"),
+            Triple("Navegador Web", "google-chrome", "google-chrome"),
+            Triple("Editor de Texto", "gedit", "text-editor"),
+            Triple("Editor de Texto", "gnome-text-editor", "text-editor"),
+            Triple("Calculadora", "gnome-calculator", "accessories-calculator"),
+            Triple("Monitor del Sistema", "gnome-system-monitor", "utilities-system-monitor"),
+            Triple("Configuración", "gnome-control-center", "preferences-system")
+        )
+
+        val appsEncontradas = mutableListOf<Juego>()
+
+        for ((nombre, comando, icon) in appsBasicas) {
+            if (validarEjecutable(comando)) {
+                // Evitar duplicados por nombre
+                if (appsEncontradas.none { it.nombre == nombre }) {
+                    appsEncontradas.add(
+                        Juego(
+                            nombre = nombre,
+                            ruta = comando,
+                            isSystemApp = true,
+                            iconPath = icon
+                        )
+                    )
+                    println("✅ App básica añadida: $nombre -> $comando")
                 }
             }
         }
 
-        // Solo crear el Juego si tenemos tanto nombre como exec
-        return if (nombre != null && exec != null && nombre!!.isNotBlank() && exec!!.isNotBlank()) {
-            Juego(
-                nombre = nombre!!,
-                ruta = exec!!,
-                isSystemApp = true
-            )
-        } else {
-            null
-        }
+        return appsEncontradas
     }
 }
